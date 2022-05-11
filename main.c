@@ -181,7 +181,7 @@ static THD_FUNCTION(ThdMelody, arg) {
 
 int main(void)
 {
-
+	//test
     halInit();
     chSysInit();
     mpu_init();
