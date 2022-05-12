@@ -47,74 +47,119 @@ static float micBack_output[FFT_SIZE];
 *	Simple function used to detect the highest value in a buffer
 *	and to execute a motor command depending on it
 */
-void sound_remote(float* data1, float* data2, float* data3, float* data4){
-	float max_norm = MIN_VALUE_THRESHOLD;
+void sound_remote(float* dataLeft, float* dataRight, float* dataFront, float* dataBack){
+	float max_norm_left = MIN_VALUE_THRESHOLD;
+	float max_norm_right = MIN_VALUE_THRESHOLD;
+	float max_norm_front = MIN_VALUE_THRESHOLD;
+	float max_norm_back = MIN_VALUE_THRESHOLD;
+
 	int16_t max_norm_index = -1; 
 
 	//search for the highest peak
 	for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-		if(data1[i] > max_norm){
-			max_norm = data1[i];
+		if(dataLeft[i] > max_norm_left){
+			max_norm_left = dataLeft[i];
 			max_norm_index = i;
 		}
 	}
 
 	//search for the highest peak
 		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(data2[i] > max_norm){
-				max_norm = data2[i];
+			if(dataRight[i] > max_norm_right){
+				max_norm_right = dataRight[i];
 				max_norm_index = i;
 			}
 		}
 
 	//search for the highest peak
 		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(data3[i] > max_norm){
-				max_norm = data3[i];
+			if(dataFront[i] > max_norm_front){
+				max_norm_front = dataFront[i];
 				max_norm_index = i;
 			}
 		}
 
 	//search for the highest peak
 		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(data4[i] > max_norm){
-				max_norm = data4[i];
+			if(dataBack[i] > max_norm_back){
+				max_norm_back = dataBack[i];
 				max_norm_index = i;
-	}
+			}
 		}
 
-	float vitesse = max_norm/250;
-	if (vitesse > 0){
-		left_motor_set_speed(vitesse);
-		right_motor_set_speed(vitesse);
-	}
+	float max_norm[] = {max_norm_left, max_norm_right, max_norm_front, max_norm_back};
+	uint16_t max_mic [2];
+
+	max_mic[0] = 0;
+	for(uint16_t i = 1; i < 4; i++){
+			if (max_norm[i] > max_norm[max_mic[0]]){
+				max_mic[1] = max_mic[0];
+				max_mic[0] = i;
+			}
+		}
 	/*
-	//go forward
-	if(max_norm_index >= FREQ_FORWARD_L && max_norm_index <= FREQ_FORWARD_H){
-		left_motor_set_speed(vitesse);
-		right_motor_set_speed(vitesse);
-	}
-	//turn left
-	else if(max_norm_index >= FREQ_LEFT_L && max_norm_index <= FREQ_LEFT_H){
-		left_motor_set_speed(vitesse);
-		right_motor_set_speed(vitesse);
-	}
-	//turn right
-	else if(max_norm_index >= FREQ_RIGHT_L && max_norm_index <= FREQ_RIGHT_H){
-		left_motor_set_speed(vitesse);
-		right_motor_set_speed(vitesse);
-	}
-	//go backward
-	else if(max_norm_index >= FREQ_BACKWARD_L && max_norm_index <= FREQ_BACKWARD_H){
-		left_motor_set_speed(vitesse);
-		right_motor_set_speed(vitesse);
-	}
+	float ratio1 = max_norm[max_mic[0]]/(max_norm[max_mic[0]]+max_norm[max_mic[1]]);
+	float ratio2 = 1-ratio1;
 	*/
-	else{
+	float vitesse = max_norm[max_mic[0]]/150;
+
+
+	if (vitesse > 100){
+		if(max_norm[2] > max_norm[3]){
+			if((max_mic[0]==1 && max_mic[1]==2) || (max_mic[0]==2 && max_mic[1]==1)){
+					left_motor_set_speed(-vitesse);
+					right_motor_set_speed(vitesse);
+			}
+			if((max_mic[0]==2 && max_mic[1]==0) || (max_mic[0]==0 && max_mic[1]==2)){
+					left_motor_set_speed(vitesse);
+					right_motor_set_speed(-vitesse);
+			}
+		}else{
+			if (max_norm[0]>max_norm[1]) {
+				left_motor_set_speed(vitesse);
+				right_motor_set_speed(vitesse*max_norm[1]/max_norm[0]);
+			} else {
+				right_motor_set_speed(vitesse);
+				left_motor_set_speed(vitesse*max_norm[0]/max_norm[1]);
+			}
+		}
+	}else{
+		left_motor_set_speed(0);
+		right_motor_set_speed(0);
+	}
+
+
+/*
+		if (vitesse > 50){
+			if(max_norm[3]/(max_norm[0]+max_norm[1]+max_norm[2]+max_norm[3]) >= 0.32){
+				left_motor_set_speed(vitesse);
+				right_motor_set_speed(vitesse);
+			}else{
+
+				if((max_mic[0]==3 && max_mic[1]==1) || (max_mic[0]==1 && max_mic[1]==3)){
+					left_motor_set_speed(-vitesse*ratio2);
+					right_motor_set_speed(vitesse*ratio1);
+				}
+				if((max_mic[0]==0 && max_mic[1]==3) || (max_mic[0]==3 && max_mic[1]==0)){
+					left_motor_set_speed(vitesse*ratio1);
+					right_motor_set_speed(-vitesse*ratio2);
+				}
+				if((max_mic[0]==1 && max_mic[1]==2) || (max_mic[0]==2 && max_mic[1]==1)){
+					left_motor_set_speed(-vitesse*ratio2);
+					right_motor_set_speed(vitesse*ratio1);
+				}
+				if((max_mic[0]==2 && max_mic[1]==0) || (max_mic[0]==0 && max_mic[1]==2)){
+					left_motor_set_speed(vitesse*ratio1);
+					right_motor_set_speed(-vitesse*ratio2);
+				}
+			}
+	}else{
 		left_motor_set_speed(0);
 		right_motor_set_speed(0);
 	}
 	
+}
+*/
 }
 
 /*
