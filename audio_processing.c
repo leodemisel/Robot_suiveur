@@ -28,83 +28,44 @@ static float micBack_output[FFT_SIZE];
 #define MIN_VALUE_THRESHOLD	10000 
 
 #define MIN_FREQ		10	//we don't analyze before this index to not use resources for nothing
-#define FREQ_FORWARD	16	//250Hz
-#define FREQ_LEFT		19	//296Hz
-#define FREQ_RIGHT		23	//359HZ
-#define FREQ_BACKWARD	26	//406Hz
 #define MAX_FREQ		30	//we don't analyze after this index to not use resources for nothing
-
-#define FREQ_FORWARD_L		(FREQ_FORWARD-1)
-#define FREQ_FORWARD_H		(FREQ_FORWARD+1)
-#define FREQ_LEFT_L			(FREQ_LEFT-1)
-#define FREQ_LEFT_H			(FREQ_LEFT+1)
-#define FREQ_RIGHT_L		(FREQ_RIGHT-1)
-#define FREQ_RIGHT_H		(FREQ_RIGHT+1)
-#define FREQ_BACKWARD_L		(FREQ_BACKWARD-1)
-#define FREQ_BACKWARD_H		(FREQ_BACKWARD+1)
 
 /*
 *	Simple function used to detect the highest value in a buffer
 *	and to execute a motor command depending on it
 */
 void sound_remote(float* dataLeft, float* dataRight, float* dataFront, float* dataBack){
-	float max_norm_left = MIN_VALUE_THRESHOLD;
-	float max_norm_right = MIN_VALUE_THRESHOLD;
-	float max_norm_front = MIN_VALUE_THRESHOLD;
-	float max_norm_back = MIN_VALUE_THRESHOLD;
 
-	int16_t max_norm_index = -1; 
+	float max_norm[4] = {MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD};
+					//= {max_norm_left, max_norm_right, max_norm_front, max_norm_back};
+	uint16_t max_mic [2] = {0};
 
-	//search for the highest peak
+	//search for the highest norms
 	for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-		if(dataLeft[i] > max_norm_left){
-			max_norm_left = dataLeft[i];
-			max_norm_index = i;
+		if(dataLeft[i] > max_norm[0]){
+			max_norm[0] = dataLeft[i];
+		}
+		if(dataRight[i] > max_norm[1]){
+			max_norm[1] = dataRight[i];
+		}
+		if(dataFront[i] > max_norm[2]){
+			max_norm[2] = dataFront[i];
+		}
+		if(dataBack[i] > max_norm[3]){
+			max_norm[3] = dataBack[i];
 		}
 	}
-
-	//search for the highest peak
-		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(dataRight[i] > max_norm_right){
-				max_norm_right = dataRight[i];
-				max_norm_index = i;
-			}
-		}
-
-	//search for the highest peak
-		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(dataFront[i] > max_norm_front){
-				max_norm_front = dataFront[i];
-				max_norm_index = i;
-			}
-		}
-
-	//search for the highest peak
-		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-			if(dataBack[i] > max_norm_back){
-				max_norm_back = dataBack[i];
-				max_norm_index = i;
-			}
-		}
-
-	float max_norm[] = {max_norm_left, max_norm_right, max_norm_front, max_norm_back};
-	uint16_t max_mic [2];
-
-	max_mic[0] = 0;
+	// search for the highest norm
 	for(uint16_t i = 1; i < 4; i++){
 			if (max_norm[i] > max_norm[max_mic[0]]){
 				max_mic[1] = max_mic[0];
 				max_mic[0] = i;
 			}
 		}
-	/*
-	float ratio1 = max_norm[max_mic[0]]/(max_norm[max_mic[0]]+max_norm[max_mic[1]]);
-	float ratio2 = 1-ratio1;
-	*/
+
 	float vitesse = max_norm[max_mic[0]]/150;
 
-
-	if (vitesse > 100){
+	if (vitesse > 125){
 		if(max_norm[2] > max_norm[3]){
 			if((max_mic[0]==1 && max_mic[1]==2) || (max_mic[0]==2 && max_mic[1]==1)){
 					left_motor_set_speed(-vitesse);
@@ -127,39 +88,6 @@ void sound_remote(float* dataLeft, float* dataRight, float* dataFront, float* da
 		left_motor_set_speed(0);
 		right_motor_set_speed(0);
 	}
-
-
-/*
-		if (vitesse > 50){
-			if(max_norm[3]/(max_norm[0]+max_norm[1]+max_norm[2]+max_norm[3]) >= 0.32){
-				left_motor_set_speed(vitesse);
-				right_motor_set_speed(vitesse);
-			}else{
-
-				if((max_mic[0]==3 && max_mic[1]==1) || (max_mic[0]==1 && max_mic[1]==3)){
-					left_motor_set_speed(-vitesse*ratio2);
-					right_motor_set_speed(vitesse*ratio1);
-				}
-				if((max_mic[0]==0 && max_mic[1]==3) || (max_mic[0]==3 && max_mic[1]==0)){
-					left_motor_set_speed(vitesse*ratio1);
-					right_motor_set_speed(-vitesse*ratio2);
-				}
-				if((max_mic[0]==1 && max_mic[1]==2) || (max_mic[0]==2 && max_mic[1]==1)){
-					left_motor_set_speed(-vitesse*ratio2);
-					right_motor_set_speed(vitesse*ratio1);
-				}
-				if((max_mic[0]==2 && max_mic[1]==0) || (max_mic[0]==0 && max_mic[1]==2)){
-					left_motor_set_speed(vitesse*ratio1);
-					right_motor_set_speed(-vitesse*ratio2);
-				}
-			}
-	}else{
-		left_motor_set_speed(0);
-		right_motor_set_speed(0);
-	}
-	
-}
-*/
 }
 
 /*
