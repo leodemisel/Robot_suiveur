@@ -164,19 +164,22 @@ static THD_FUNCTION(ThdBodyLed, arg) {
     }
 }
 
-static THD_WORKING_AREA(waThdMelody, 128);
-static THD_FUNCTION(ThdMelody, arg) {
+static THD_WORKING_AREA(waThdFuir, 128);
+static THD_FUNCTION(ThdFuir, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
-
+    uint16_t volume;
     while(1){
-        playNote(440, 50);
+        volume = mic_get_volume(MIC_FRONT);
+        if(volume > 0){
+        	//set_led(LED1, 2);
+        	left_motor_set_speed(500);
+        	right_motor_set_speed(500);
+        }
         chThdSleepMilliseconds(500);
     }
 }
-
-
 
 
 int main(void)
@@ -195,10 +198,10 @@ int main(void)
     //inits the motors
     motors_init();
 
-chThdCreateStatic(waThdFrontLed, sizeof(waThdFrontLed), NORMALPRIO +1, ThdFrontLed, NULL);
-chThdCreateStatic(waThdBodyLed, sizeof(waThdBodyLed), NORMALPRIO, ThdBodyLed, NULL);
+//chThdCreateStatic(waThdFrontLed, sizeof(waThdFrontLed), NORMALPRIO +1, ThdFrontLed, NULL);
+//chThdCreateStatic(waThdBodyLed, sizeof(waThdBodyLed), NORMALPRIO, ThdBodyLed, NULL);
 chThdCreateStatic(wabouge, sizeof(wabouge), NORMALPRIO , bouge, NULL);
-
+//chThdCreateStatic(waThdFuir, sizeof(waThdFuir), NORMALPRIO , ThdFuir, NULL);
 
 
 }

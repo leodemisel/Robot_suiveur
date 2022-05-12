@@ -47,38 +47,69 @@ static float micBack_output[FFT_SIZE];
 *	Simple function used to detect the highest value in a buffer
 *	and to execute a motor command depending on it
 */
-void sound_remote(float* data){
+void sound_remote(float* data1, float* data2, float* data3, float* data4){
 	float max_norm = MIN_VALUE_THRESHOLD;
 	int16_t max_norm_index = -1; 
 
 	//search for the highest peak
 	for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-		if(data[i] > max_norm){
-			max_norm = data[i];
+		if(data1[i] > max_norm){
+			max_norm = data1[i];
 			max_norm_index = i;
 		}
 	}
 
+	//search for the highest peak
+		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
+			if(data2[i] > max_norm){
+				max_norm = data2[i];
+				max_norm_index = i;
+			}
+		}
+
+	//search for the highest peak
+		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
+			if(data3[i] > max_norm){
+				max_norm = data3[i];
+				max_norm_index = i;
+			}
+		}
+
+	//search for the highest peak
+		for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
+			if(data4[i] > max_norm){
+				max_norm = data4[i];
+				max_norm_index = i;
+	}
+		}
+
+	float vitesse = max_norm/250;
+	if (vitesse > 0){
+		left_motor_set_speed(vitesse);
+		right_motor_set_speed(vitesse);
+	}
+	/*
 	//go forward
 	if(max_norm_index >= FREQ_FORWARD_L && max_norm_index <= FREQ_FORWARD_H){
-		left_motor_set_speed(600);
-		right_motor_set_speed(600);
+		left_motor_set_speed(vitesse);
+		right_motor_set_speed(vitesse);
 	}
 	//turn left
 	else if(max_norm_index >= FREQ_LEFT_L && max_norm_index <= FREQ_LEFT_H){
-		left_motor_set_speed(-600);
-		right_motor_set_speed(600);
+		left_motor_set_speed(vitesse);
+		right_motor_set_speed(vitesse);
 	}
 	//turn right
 	else if(max_norm_index >= FREQ_RIGHT_L && max_norm_index <= FREQ_RIGHT_H){
-		left_motor_set_speed(600);
-		right_motor_set_speed(-600);
+		left_motor_set_speed(vitesse);
+		right_motor_set_speed(vitesse);
 	}
 	//go backward
 	else if(max_norm_index >= FREQ_BACKWARD_L && max_norm_index <= FREQ_BACKWARD_H){
-		left_motor_set_speed(-600);
-		right_motor_set_speed(-600);
+		left_motor_set_speed(vitesse);
+		right_motor_set_speed(vitesse);
 	}
+	*/
 	else{
 		left_motor_set_speed(0);
 		right_motor_set_speed(0);
@@ -165,7 +196,7 @@ void processAudioData(int16_t *data, uint16_t num_samples){
 		nb_samples = 0;
 		mustSend++;
 
-		sound_remote(micLeft_output);
+		sound_remote(micLeft_output, micRight_output, micFront_output, micBack_output);
 	}
 }
 
