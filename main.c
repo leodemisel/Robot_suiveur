@@ -15,8 +15,15 @@
 #include <communications.h>
 #include <arm_math.h>
 #include <leds.h>
-#include <sensors/proximity.h>
+#include "sensors/battery_level.h"
+#include "sensors/imu.h"
+#include "sensors/mpu9250.h"
+#include "sensors/proximity.h"
+#include "sensors/VL53L0X/VL53L0X.h"
 
+messagebus_t bus;
+MUTEX_DECL(bus_lock);
+CONDVAR_DECL(bus_condvar);
 //uncomment to send the FFTs results from the real microphones
 #define SEND_FROM_MIC
 
@@ -52,23 +59,8 @@ static void timer12_start(void){
 }
 
 
-static THD_WORKING_AREA(waThdFrontLed, 128);
-static THD_FUNCTION(ThdFrontLed, arg) {
-
-    chRegSetThreadName(__FUNCTION__);
-    (void)arg;
-
-    systime_t time;
-
-    while(1){
-        time = chVTGetSystemTime();
-        palTogglePad(GPIOD, GPIOD_LED_FRONT);
-        chThdSleepUntilWindowed(time, time + MS2ST(10));
-    }
-}
-
-static THD_WORKING_AREA(wabouge, 128);
-static THD_FUNCTION(bouge, arg) {
+static THD_WORKING_AREA(SoundMovement, 128);
+static THD_FUNCTION(ThdSoundMovement, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
@@ -78,19 +70,28 @@ static THD_FUNCTION(bouge, arg) {
         }
 }
 
-static THD_WORKING_AREA(waThdBodyLed, 128);
-static THD_FUNCTION(ThdBodyLed, arg) {
+static THD_WORKING_AREA(NoInputLeds, 128);
+static THD_FUNCTION(ThdNoInputLeds, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
 
     while(1){
-        palTogglePad(GPIOB, GPIOB_LED_BODY);
-        set_led(LED5,2);
-        chThdSleepMilliseconds(500);
-        palTogglePad(GPIOB, GPIOB_LED_BODY);
-        set_led(LED5,0);
-        chThdSleepMilliseconds(500);
+    	set_led(LED1, 1);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED3, 1);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED5, 1);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED7, 1);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED1, 0);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED3, 0);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED5, 0);
+    	chThdSleepMilliseconds(50);
+    	set_led(LED7, 0);
     }
 }
 
@@ -99,17 +100,20 @@ static THD_FUNCTION(ThdObstacle, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
+    systime_t time;
+
+    messagebus_topic_t *prox_topic = messagebus_find_topic_blocking(&bus, "/proximity");
+    proximity_msg_t prox_values;
+    int16_t leftSpeed = 0, rightSpeed = 0;
 
     while(1){
-
-		if(get_prox(0) <= 140 && get_prox(7) <= 140){
-			left_motor_set_speed(-500);
-		} if(get_prox(0) <= 140 && get_prox(1) <= 140){
-			left_motor_set_speed(-500);
-		} else{
-			left_motor_set_speed(500);
-			right_motor_set_speed(500);
-		}
+    	time = chVTGetSystemTime();
+    	messagebus_topic_wait(prox_topic, &prox_values, sizeof(prox_values));
+    	leftSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[0]*2 - prox_values.delta[1];
+    	rightSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[7]*2 - prox_values.delta[6];
+    	right_motor_set_speed(rightSpeed);
+    	left_motor_set_speed(leftSpeed);
+    	chThdSleepUntilWindowed(time, time + MS2ST(10)); // Refresh @ 100 Hz.
 
     }
 }
@@ -117,6 +121,7 @@ static THD_FUNCTION(ThdObstacle, arg) {
 
 int main(void)
 {
+	messagebus_init(&bus, &bus_lock, &bus_condvar);
 	//test
     halInit();
     chSysInit();
@@ -130,13 +135,14 @@ int main(void)
     timer12_start();
     //inits the motors
     motors_init();
-    //calibrate_ir();
+    proximity_start();
+    imu_start();
 
 
-//chThdCreateStatic(waThdFrontLed, sizeof(waThdFrontLed), NORMALPRIO +1, ThdFrontLed, NULL);
-chThdCreateStatic(waThdBodyLed, sizeof(waThdBodyLed), NORMALPRIO, ThdBodyLed, NULL);
-chThdCreateStatic(wabouge, sizeof(wabouge), NORMALPRIO , bouge, NULL);
-//chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO , ThdObstacle, NULL);
+
+//chThdCreateStatic(NoInputLeds, sizeof(NoInputLeds), NORMALPRIO, ThdNoInputLeds, NULL);
+//chThdCreateStatic(SoundMovement, sizeof(SoundMovement), NORMALPRIO , ThdSoundMovement, NULL);
+chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO , ThdObstacle, NULL);
 
 }
 
