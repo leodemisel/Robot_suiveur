@@ -14,6 +14,7 @@ CSRC += ./main.c \
 		./communications.c \
 		./fft.c \
 		./gpio.c \
+		./motors_control.c \
 
 #Header folders to include
 INCDIR += 

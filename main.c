@@ -20,6 +20,7 @@
 #include "sensors/mpu9250.h"
 #include "sensors/proximity.h"
 #include "sensors/VL53L0X/VL53L0X.h"
+#include <motors_control.h>
 
 messagebus_t bus;
 MUTEX_DECL(bus_lock);
@@ -58,16 +59,23 @@ static void timer12_start(void){
     gptStartContinuous(&GPTD12, 0xFFFF);
 }
 
-
 static THD_WORKING_AREA(SoundMovement, 128);
 static THD_FUNCTION(ThdSoundMovement, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
+    systime_t time;
+    time = chVTGetSystemTime();
 
     while (1) {
-    	mic_start(&processAudioData);
-        }
+
+    	/*if(prox_values.delta[0]>60 || prox_values.delta[6]>60 || prox_values.delta[7]>60 || prox_values.delta[1]>60){
+    		chThdSleepMilliseconds(1000);
+    	} else{*/
+    		mic_start(&processAudioData);
+    		chThdSleepMilliseconds(100);
+    	//}
+    }
 }
 
 static THD_WORKING_AREA(NoInputLeds, 128);
@@ -95,6 +103,18 @@ static THD_FUNCTION(ThdNoInputLeds, arg) {
     }
 }
 
+static THD_WORKING_AREA(Forward, 128);
+static THD_FUNCTION(ThdForward, arg) {
+
+    chRegSetThreadName(__FUNCTION__);
+    (void)arg;
+
+    while(1){
+    	go_forward();
+    	chThdSleepMilliseconds(200);
+    }
+}
+
 static THD_WORKING_AREA(waThdObstacle, 128);
 static THD_FUNCTION(ThdObstacle, arg) {
 
@@ -107,20 +127,43 @@ static THD_FUNCTION(ThdObstacle, arg) {
     int16_t leftSpeed = 0, rightSpeed = 0;
 
     while(1){
-    	time = chVTGetSystemTime();
+    	//time = chVTGetSystemTime();
     	messagebus_topic_wait(prox_topic, &prox_values, sizeof(prox_values));
-    	leftSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[0]*2 - prox_values.delta[1];
-    	rightSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[7]*2 - prox_values.delta[6];
-    	right_motor_set_speed(rightSpeed);
-    	left_motor_set_speed(leftSpeed);
-    	chThdSleepUntilWindowed(time, time + MS2ST(10)); // Refresh @ 100 Hz.
 
+    	if (prox_values.delta[6]>200 && prox_values.delta[1]>200) {
+    		set_led(LED1, 1);
+    		//chThdSleepMilliseconds(50);
+    	} else {
+    		if (prox_values.delta[6]>200 || prox_values.delta[7]>200) {
+    			rotate_right();
+    			//chThdSleepMilliseconds(50);
+    		} else {
+    			if (prox_values.delta[0]>200 || prox_values.delta[1]>200) {
+    				rotate_left();
+    				//chThdSleepMilliseconds(50);
+    			} else {
+    				//go_forward();
+    				//chThdSleepMilliseconds(50);
+    			}
+    		}
+    	}
+/*
+
+    	if(prox_values.delta[0]>60 || prox_values.delta[6]>60 || prox_values.delta[7]>60 || prox_values.delta[1]>60){
+    		leftSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[0]*2 - prox_values.delta[1];
+    		rightSpeed = MOTOR_SPEED_LIMIT - prox_values.delta[7]*2 - prox_values.delta[6];
+    		right_motor_set_speed(rightSpeed);
+    		left_motor_set_speed(leftSpeed);
+    	} else {
+    		chThdSleepMilliseconds(500);
+    	}
+    	chThdSleepUntilWindowed(time, time + MS2ST(10)); // Refresh @ 100 Hz. */
+    	chThdSleepMilliseconds(50);
     }
 }
 
 
-int main(void)
-{
+int main(void) {
 	messagebus_init(&bus, &bus_lock, &bus_condvar);
 	//test
     halInit();
@@ -141,8 +184,9 @@ int main(void)
 
 
 //chThdCreateStatic(NoInputLeds, sizeof(NoInputLeds), NORMALPRIO, ThdNoInputLeds, NULL);
-//chThdCreateStatic(SoundMovement, sizeof(SoundMovement), NORMALPRIO , ThdSoundMovement, NULL);
-chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO , ThdObstacle, NULL);
+chThdCreateStatic(SoundMovement, sizeof(SoundMovement), NORMALPRIO , ThdSoundMovement, NULL);
+chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO+1, ThdObstacle, NULL);
+//chThdCreateStatic(Forward, sizeof(Forward), NORMALPRIO, ThdForward, NULL);
 
 }
 
