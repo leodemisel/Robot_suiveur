@@ -121,13 +121,11 @@ static THD_FUNCTION(ThdObstacle, arg) {
     while(1){
 
     	if(get_prox(0)>IR_OBSTACLE || get_prox(6)>IR_OBSTACLE || get_prox(7)>IR_OBSTACLE || get_prox(1)>IR_OBSTACLE){
-    		set_led(LED1, 1);
     		obstacle = 1;
     		left_motor_ir = 700 - get_prox(0)*2 - get_prox(1)*2;
     		right_motor_ir = 700 - get_prox(7)*2 - get_prox(6)*2;
     		chThdSleepMilliseconds(50);
     	} else {
-    		set_led(LED1, 0);
     		obstacle = 0;
     		left_motor_ir = 0;
     		right_motor_ir = 0;
