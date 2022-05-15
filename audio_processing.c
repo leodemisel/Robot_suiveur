@@ -7,7 +7,6 @@
 #include <motors.h>
 #include <audio/microphone.h>
 #include <audio_processing.h>
-#include <communications.h>
 #include <fft.h>
 #include <arm_math.h>
 #include <leds.h>
@@ -26,7 +25,9 @@ static float micRight_output[FFT_SIZE];
 static float micFront_output[FFT_SIZE];
 static float micBack_output[FFT_SIZE];
 
-#define MIN_VALUE_THRESHOLD	10000 
+#define MIN_VALUE_THRESHOLD	10000
+#define MAX_SPEED			900
+#define VITESSE_MIN			150
 
 #define MIN_FREQ		10	//we don't analyze before this index to not use resources for nothing
 #define MAX_FREQ		30	//we don't analyze after this index to not use resources for nothing
@@ -66,25 +67,25 @@ void sound_Align(float* dataLeft, float* dataRight, float* dataFront, float* dat
 
 	float vitesse = max_norm[max_mic[0]]/100;
 
-	if (vitesse > 150){
+	if (vitesse > VITESSE_MIN){
 		clear_leds();
 		if(max_norm[2] > max_norm[3]){ //Sound from front
 			set_led(LED1, 1);
 			if (max_norm[0] > max_norm[1]){//Son plus fort à gauche qu'à droite
 				set_led(LED7, 1);
-				set_motor_sound(900*max_norm[1]/max_norm[0], 900);
+				set_motor_sound(MAX_SPEED*max_norm[1]/max_norm[0], MAX_SPEED);
 			} else {//Son plus fort à droite qu'à gauche
 				set_led(LED3, 1);
-				set_motor_sound(900, 900*max_norm[0]/max_norm[1]);
+				set_motor_sound(MAX_SPEED, MAX_SPEED*max_norm[0]/max_norm[1]);
 			}
 		} else { //Sound from back
 			set_led(LED5, 1);
 			if (max_norm[0] > max_norm[1]){//Son plus fort à gauche qu'à droite
 				set_led(LED7, 1);
-				set_motor_sound(-900, 900);
+				set_motor_sound(-MAX_SPEED, MAX_SPEED);
 			} else {//Son plus fort à droite qu'à gauche
 				set_led(LED3, 1);
-				set_motor_sound(900, -900);
+				set_motor_sound(MAX_SPEED, -MAX_SPEED);
 			}
 		}
 	} else {
