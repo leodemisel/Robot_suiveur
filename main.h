@@ -15,6 +15,8 @@ extern messagebus_t bus;
 
 extern parameter_namespace_t parameter_root;
 
+void set_motor_sound(float left, float right);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,9 +7,9 @@
 #include <motors.h>
 #include <audio/microphone.h>
 #include <audio_processing.h>
-#include <communications.h>
 #include <fft.h>
 #include <arm_math.h>
+#include <leds.h>
 
 //semaphore
 static BSEMAPHORE_DECL(sendToComputer_sem, TRUE);
@@ -25,65 +25,74 @@ static float micRight_output[FFT_SIZE];
 static float micFront_output[FFT_SIZE];
 static float micBack_output[FFT_SIZE];
 
-#define MIN_VALUE_THRESHOLD	10000 
+#define MIN_VALUE_THRESHOLD	10000
+#define MAX_SPEED			700
+#define SOUND_MIN			15000
+#define NO_INPUT			0
 
 #define MIN_FREQ		10	//we don't analyze before this index to not use resources for nothing
-#define FREQ_FORWARD	16	//250Hz
-#define FREQ_LEFT		19	//296Hz
-#define FREQ_RIGHT		23	//359HZ
-#define FREQ_BACKWARD	26	//406Hz
 #define MAX_FREQ		30	//we don't analyze after this index to not use resources for nothing
-
-#define FREQ_FORWARD_L		(FREQ_FORWARD-1)
-#define FREQ_FORWARD_H		(FREQ_FORWARD+1)
-#define FREQ_LEFT_L			(FREQ_LEFT-1)
-#define FREQ_LEFT_H			(FREQ_LEFT+1)
-#define FREQ_RIGHT_L		(FREQ_RIGHT-1)
-#define FREQ_RIGHT_H		(FREQ_RIGHT+1)
-#define FREQ_BACKWARD_L		(FREQ_BACKWARD-1)
-#define FREQ_BACKWARD_H		(FREQ_BACKWARD+1)
 
 /*
 *	Simple function used to detect the highest value in a buffer
 *	and to execute a motor command depending on it
 */
-void sound_remote(float* data){
-	float max_norm = MIN_VALUE_THRESHOLD;
-	int16_t max_norm_index = -1; 
+void soundAnalysis(float* dataLeft, float* dataRight, float* dataFront, float* dataBack){
 
-	//search for the highest peak
+	float max_norm[4] = {MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD, MIN_VALUE_THRESHOLD};
+					//= {max_norm_left, max_norm_right, max_norm_front, max_norm_back};
+
+	//détermination pour chaque capteur du son le plus fort
 	for(uint16_t i = MIN_FREQ ; i <= MAX_FREQ ; i++){
-		if(data[i] > max_norm){
-			max_norm = data[i];
-			max_norm_index = i;
+		if(dataLeft[i] > max_norm[0]){
+			max_norm[0] = dataLeft[i];
+		}
+		if(dataRight[i] > max_norm[1]){
+			max_norm[1] = dataRight[i];
+		}
+		if(dataFront[i] > max_norm[2]){
+			max_norm[2] = dataFront[i];
+		}
+		if(dataBack[i] > max_norm[3]){
+			max_norm[3] = dataBack[i];
 		}
 	}
 
-	//go forward
-	if(max_norm_index >= FREQ_FORWARD_L && max_norm_index <= FREQ_FORWARD_H){
-		left_motor_set_speed(600);
-		right_motor_set_speed(600);
+	// détermination des deux capteurs avec les plus grandes valeurs de son
+	uint16_t max_mic [2] = {0};
+
+	for(uint16_t i = 1; i < 4; i++){
+			if (max_norm[i] > max_norm[max_mic[0]]){
+				max_mic[1] = max_mic[0];
+				max_mic[0] = i;
+			}
+		}
+
+	//détermination de la commande en fonction de la position du son + affichage LED de la provenance du son
+	if (max_norm[max_mic[0]] > SOUND_MIN){	//check si le son est assez fort
+		clear_leds();
+		if(max_norm[2] > max_norm[3]){ //Sound from front
+			set_led(LED1, 1);
+			if (max_norm[0] > max_norm[1]){//Son plus fort à gauche qu'à droite
+				set_led(LED7, 1);
+				set_motor_sound(MAX_SPEED*max_norm[1]/max_norm[0], MAX_SPEED); //transmission des valeurs à main.c
+			} else {//Son plus fort à droite qu'à gauche
+				set_led(LED3, 1);
+				set_motor_sound(MAX_SPEED, MAX_SPEED*max_norm[0]/max_norm[1]);//transmission des valeurs à main.c
+			}
+		} else { //Sound from back
+			set_led(LED5, 1);
+			if (max_norm[0] > max_norm[1]){				//Son plus fort à gauche qu'à droite
+				set_led(LED7, 1);
+				set_motor_sound(-MAX_SPEED, MAX_SPEED);//transmission des valeurs à main.c
+			} else {//Son plus fort à droite qu'à gauche
+				set_led(LED3, 1);
+				set_motor_sound(MAX_SPEED, -MAX_SPEED);//transmission des valeurs à main.c
+			}
+		}
+	} else {
+		set_motor_sound(NO_INPUT, NO_INPUT);
 	}
-	//turn left
-	else if(max_norm_index >= FREQ_LEFT_L && max_norm_index <= FREQ_LEFT_H){
-		left_motor_set_speed(-600);
-		right_motor_set_speed(600);
-	}
-	//turn right
-	else if(max_norm_index >= FREQ_RIGHT_L && max_norm_index <= FREQ_RIGHT_H){
-		left_motor_set_speed(600);
-		right_motor_set_speed(-600);
-	}
-	//go backward
-	else if(max_norm_index >= FREQ_BACKWARD_L && max_norm_index <= FREQ_BACKWARD_H){
-		left_motor_set_speed(-600);
-		right_motor_set_speed(-600);
-	}
-	else{
-		left_motor_set_speed(0);
-		right_motor_set_speed(0);
-	}
-	
 }
 
 /*
@@ -96,6 +105,7 @@ void sound_remote(float* data){
 *	uint16_t num_samples	Tells how many data we get in total (should always be 640)
 */
 void processAudioData(int16_t *data, uint16_t num_samples){
+//fonction processAudioData du tp5 avec la partie communication bluetooth retirée
 
 	/*
 	*
@@ -155,50 +165,12 @@ void processAudioData(int16_t *data, uint16_t num_samples){
 		arm_cmplx_mag_f32(micFront_cmplx_input, micFront_output, FFT_SIZE);
 		arm_cmplx_mag_f32(micBack_cmplx_input, micBack_output, FFT_SIZE);
 
-		//sends only one FFT result over 10 for 1 mic to not flood the computer
-		//sends to UART3
+		//sends only one FFT result over 10
 		if(mustSend > 8){
-			//signals to send the result to the computer
-			chBSemSignal(&sendToComputer_sem);
 			mustSend = 0;
 		}
 		nb_samples = 0;
 		mustSend++;
-
-		sound_remote(micLeft_output);
-	}
-}
-
-void wait_send_to_computer(void){
-	chBSemWait(&sendToComputer_sem);
-}
-
-float* get_audio_buffer_ptr(BUFFER_NAME_t name){
-	if(name == LEFT_CMPLX_INPUT){
-		return micLeft_cmplx_input;
-	}
-	else if (name == RIGHT_CMPLX_INPUT){
-		return micRight_cmplx_input;
-	}
-	else if (name == FRONT_CMPLX_INPUT){
-		return micFront_cmplx_input;
-	}
-	else if (name == BACK_CMPLX_INPUT){
-		return micBack_cmplx_input;
-	}
-	else if (name == LEFT_OUTPUT){
-		return micLeft_output;
-	}
-	else if (name == RIGHT_OUTPUT){
-		return micRight_output;
-	}
-	else if (name == FRONT_OUTPUT){
-		return micFront_output;
-	}
-	else if (name == BACK_OUTPUT){
-		return micBack_output;
-	}
-	else{
-		return NULL;
+		soundAnalysis(micLeft_output, micRight_output, micFront_output, micBack_output);
 	}
 }
