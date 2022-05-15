@@ -58,34 +58,7 @@ static void timer12_start(void){
     //let the timer count to max value
     gptStartContinuous(&GPTD12, 0xFFFF);
 }
-/*
-static THD_WORKING_AREA(SoundMovement, 128);
-static THD_FUNCTION(ThdSoundMovement, arg) {
 
-    chRegSetThreadName(__FUNCTION__);
-    (void)arg;
-    systime_t time;
-    time = chVTGetSystemTime();
-
-    while (1) {
-    		mic_start(&processAudioData);
-    		chThdSleepMilliseconds(100);
-    }
-}
-*/
-static THD_WORKING_AREA(waForward, 128);
-static THD_FUNCTION(ThdForward, arg) {
-
-    chRegSetThreadName(__FUNCTION__);
-    (void)arg;
-    systime_t time;
-    time = chVTGetSystemTime();
-
-    while (1) {
-    		mic_start(&goForward);
-    		chThdSleepMilliseconds(100);
-    }
-}
 
 static THD_WORKING_AREA(waAlignSound, 128);
 static THD_FUNCTION(ThdAlignSound, arg) {
@@ -96,8 +69,8 @@ static THD_FUNCTION(ThdAlignSound, arg) {
     time = chVTGetSystemTime();
 
     while (1) {
-    		mic_start(&AlignSound);
-    		chThdSleepMilliseconds(100);
+    	mic_start(&AlignSound);
+    	chThdSleepMilliseconds(100);
     }
 }
 
@@ -218,25 +191,6 @@ static THD_FUNCTION(ThdObstacle, arg) {
     }
 }
 
-static THD_WORKING_AREA(waThdStuck, 128);
-static THD_FUNCTION(ThdStuck, arg) {
-    chRegSetThreadName(__FUNCTION__);
-    (void)arg;
-
-    while(1){
-    	if(get_prox(2)>15 && get_prox(5)>15 && get_prox(0)>30 && get_prox(1) >30 && get_prox(6) >30 && get_prox(7) > 30){
-    		set_led(LED5, 1);
-    		chThdCreateStatic(NoInputLeds, sizeof(NoInputLeds), NORMALPRIO, ThdNoInputLeds, NULL);
-    	}
-    	else{
-    		set_led(LED5, 0);
-    		chThdSleepMilliseconds(50);
-    	}
-    }
-}
-
-
-
 int main(void) {
 	messagebus_init(&bus, &bus_lock, &bus_condvar);
 	//test
@@ -259,15 +213,8 @@ int main(void) {
 //chThdCreateStatic(NoInputLeds, sizeof(NoInputLeds), NORMALPRIO, ThdNoInputLeds, NULL);
 
 
-	//chThdCreateStatic(waThdLeave, sizeof(waThdLeave), NORMALPRIO+2, ThdLeave, NULL);
-
-    //chThdCreateStatic(SoundMovement, sizeof(SoundMovement), NORMALPRIO , ThdSoundMovement, NULL);
-
-    //chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO+1, ThdObstacle, NULL);
-
-   // chThdCreateStatic(waThdStuck, sizeof(waThdStuck), NORMALPRIO+3, ThdStuck, NULL);
-
-    //chThdCreateStatic(waForward, sizeof(waForward), NORMALPRIO, ThdForward, NULL);
+	chThdCreateStatic(waThdLeave, sizeof(waThdLeave), NORMALPRIO+2, ThdLeave, NULL);
+    chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO+1, ThdObstacle, NULL);
     chThdCreateStatic(waAlignSound, sizeof(waAlignSound), NORMALPRIO, ThdAlignSound, NULL);
 
 }
