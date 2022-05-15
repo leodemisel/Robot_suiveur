@@ -28,6 +28,17 @@ CONDVAR_DECL(bus_condvar);
 //uncomment to send the FFTs results from the real microphones
 #define SEND_FROM_MIC
 
+static bool obstacle;
+static float left_motor_sound;
+static float right_motor_sound;
+static float left_motor_ir;
+static float right_motor_ir;
+
+void set_motor_sound(float left, float right){
+	left_motor_sound = left;
+	right_motor_sound = right;
+}
+
 //uncomment to use double buffering to send the FFT to the computer
 #define DOUBLE_BUFFERING
 
@@ -65,8 +76,6 @@ static THD_FUNCTION(ThdAlignSound, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
-    systime_t time;
-    time = chVTGetSystemTime();
 
     while (1) {
     	mic_start(&AlignSound);
@@ -74,31 +83,26 @@ static THD_FUNCTION(ThdAlignSound, arg) {
     }
 }
 
-static THD_WORKING_AREA(NoInputLeds, 128);
-static THD_FUNCTION(ThdNoInputLeds, arg) {
+static THD_WORKING_AREA(waMove, 128);
+static THD_FUNCTION(ThdMove, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
+    systime_t time;
+    time = chVTGetSystemTime();
 
-    while(1){
-    	set_led(LED1, 1);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED3, 1);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED5, 1);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED7, 1);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED1, 0);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED3, 0);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED5, 0);
-    	chThdSleepMilliseconds(50);
-    	set_led(LED7, 0);
+    while (1) {
+    	if (obstacle == 1) {
+    		left_motor_set_speed(left_motor_ir);
+    		right_motor_set_speed(right_motor_ir);
+    		chThdSleepMilliseconds(100);
+    	} else {
+    		left_motor_set_speed(left_motor_sound);
+    		right_motor_set_speed(right_motor_sound);
+    		chThdSleepMilliseconds(100);
+    	}
     }
 }
-
 
 static THD_WORKING_AREA(waThdLeave, 128);
 static THD_FUNCTION(ThdLeave, arg) {
@@ -108,24 +112,19 @@ static THD_FUNCTION(ThdLeave, arg) {
 	int stuck = 0;
 
     while(1){
-    	if(get_prox(2)>20 && get_prox(5)>20 && get_prox(0)>30 && get_prox(1) >30 && get_prox(6) >30 && get_prox(7) > 30){
+    	if(get_prox(2)>10 && get_prox(5)>10 && get_prox(0)>30 && get_prox(1) >30 && get_prox(6) >30 && get_prox(7) > 30){
     		while(1){
     		    rotate_left();
     		    set_led(LED1, 1);
     		    set_led(LED3, 1);
     		    set_led(LED5, 1);
     		    set_led(LED7, 1);
-    		    set_led(LED1, 0);
-    		    set_led(LED3, 0);
-    		    set_led(LED5, 0);
-    		    set_led(LED7, 0);
     		}
     		chThdSleepMilliseconds(50);
     	}else if(get_prox(0) > 40 && get_prox(1) > 40 && get_prox(6) > 40 && get_prox(7) > 40){
        			stuck++;
        			systime_t time;
        			time = chVTGetSystemTime()+ 1300;
-
        			while(chVTGetSystemTime() != time){
        				rotate_left();
        			}
@@ -148,44 +147,22 @@ static THD_FUNCTION(ThdObstacle, arg) {
 
     chRegSetThreadName(__FUNCTION__);
     (void)arg;
-    systime_t time;
+    left_motor_ir = 0;
+    right_motor_ir = 0;
 
-    messagebus_topic_t *prox_topic = messagebus_find_topic_blocking(&bus, "/proximity");
-    proximity_msg_t prox_values;
-    int16_t leftSpeed = 0, rightSpeed = 0;
-
-    /*while(1){
-    	//time = chVTGetSystemTime();
-    	messagebus_topic_wait(prox_topic, &prox_values, sizeof(prox_values));
-
-    	if (prox_values.delta[6]>200 && prox_values.delta[1]>200) {
-
-    		//chThdSleepMilliseconds(50);
-    	} else {
-    		if (prox_values.delta[6]>200 || prox_values.delta[7]>200) {
-    			rotate_right();
-    			//chThdSleepMilliseconds(50);
-    		} else {
-    			if (prox_values.delta[0]>200 || prox_values.delta[1]>200) {
-    				rotate_left();
-    				//chThdSleepMilliseconds(50);
-    			} else {
-    				//go_forward();
-    				//chThdSleepMilliseconds(50);
-    			}
-    		}
-    	}
-    }*/
     while(1){
+
     	if(get_prox(0)>30 || get_prox(6)>30 || get_prox(7)>30 || get_prox(1)>30){
     		set_led(LED1, 1);
-    		leftSpeed = 700 - get_prox(0)*2 - get_prox(1)*2;
-    		rightSpeed = 700 - get_prox(7)*2 - get_prox(6)*2;
-    		right_motor_set_speed(rightSpeed);
-    		left_motor_set_speed(leftSpeed);
+    		obstacle = 1;
+    		left_motor_ir = 700 - get_prox(0)*2 - get_prox(1)*2;
+    		right_motor_ir = 700 - get_prox(7)*2 - get_prox(6)*2;
     		chThdSleepMilliseconds(50);
     	} else {
     		set_led(LED1, 0);
+    		obstacle = 0;
+    		left_motor_ir = 0;
+    		right_motor_ir = 0;
     		chThdSleepMilliseconds(50);
     	}
     }
@@ -209,13 +186,10 @@ int main(void) {
     proximity_start();
     imu_start();
 
-
-//chThdCreateStatic(NoInputLeds, sizeof(NoInputLeds), NORMALPRIO, ThdNoInputLeds, NULL);
-
-
-	chThdCreateStatic(waThdLeave, sizeof(waThdLeave), NORMALPRIO+2, ThdLeave, NULL);
-    chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO+1, ThdObstacle, NULL);
-    chThdCreateStatic(waAlignSound, sizeof(waAlignSound), NORMALPRIO, ThdAlignSound, NULL);
+	chThdCreateStatic(waThdLeave, sizeof(waThdLeave), NORMALPRIO+3, ThdLeave, NULL);
+    chThdCreateStatic(waThdObstacle, sizeof(waThdObstacle), NORMALPRIO+2, ThdObstacle, NULL);
+    chThdCreateStatic(waAlignSound, sizeof(waAlignSound), NORMALPRIO+1, ThdAlignSound, NULL);
+    chThdCreateStatic(waMove, sizeof(waMove), NORMALPRIO, ThdMove, NULL);
 
 }
 

@@ -72,28 +72,23 @@ void sound_Align(float* dataLeft, float* dataRight, float* dataFront, float* dat
 			set_led(LED1, 1);
 			if (max_norm[0] > max_norm[1]){//Son plus fort à gauche qu'à droite
 				set_led(LED7, 1);
-				left_motor_set_speed(900*max_norm[1]/max_norm[0]);
-				right_motor_set_speed(900);
+				set_motor_sound(900*max_norm[1]/max_norm[0], 900);
 			} else {//Son plus fort à droite qu'à gauche
 				set_led(LED3, 1);
-				left_motor_set_speed(900);
-				right_motor_set_speed(900*max_norm[0]/max_norm[1]);
+				set_motor_sound(900, 900*max_norm[0]/max_norm[1]);
 			}
 		} else { //Sound from back
 			set_led(LED5, 1);
 			if (max_norm[0] > max_norm[1]){//Son plus fort à gauche qu'à droite
 				set_led(LED7, 1);
-				left_motor_set_speed(-900);
-				right_motor_set_speed(900);
+				set_motor_sound(-900, 900);
 			} else {//Son plus fort à droite qu'à gauche
 				set_led(LED3, 1);
-				left_motor_set_speed(900);
-				right_motor_set_speed(-900);
+				set_motor_sound(900, -900);
 			}
 		}
 	} else {
-		left_motor_set_speed(0);
-		right_motor_set_speed(0);
+		set_motor_sound(0, 0);
 	}
 }
 
