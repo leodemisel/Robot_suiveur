@@ -18,7 +18,8 @@ typedef enum {
 } BUFFER_NAME_t;
 
 
-void processAudioData(int16_t *data, uint16_t num_samples);
+void AlignSound(int16_t *data, uint16_t num_samples);
+void goForward(int16_t *data, uint16_t num_samples);
 
 /*
 *	put the invoking thread into sleep until it can process the audio datas
